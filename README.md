@@ -1,6 +1,6 @@
 # HA-SGM-2026 — API Examples
 
-ตัวอย่างการใช้งาน **REST API · WebSocket · Webhook** สำหรับ [HA-SGM-2026 Smart Gate Module](https://github.com/wanchaidiy/ha_sgm_2026_esp32)
+ตัวอย่างการใช้งาน **REST API · WebSocket · Webhook · UART** สำหรับ [HA-SGM-2026 Smart Gate Module](https://github.com/wanchaidiy/ha_sgm_2026_esp32)
 
 ---
 
@@ -11,6 +11,8 @@
 | [`examples/ws_client.html`](examples/ws_client.html) | WebSocket | Browser client — ดูสถานะ sensor แบบ real-time |
 | [`examples/webhook_receiver.py`](examples/webhook_receiver.py) | Webhook | Python server รับ POST จาก ESP32 |
 | [`examples/api_examples.sh`](examples/api_examples.sh) | REST API | curl commands ครบทุก endpoint |
+| [`examples/uart_client.py`](examples/uart_client.py) | UART | Python client คุยกับ ESP32 ผ่าน Serial |
+| [`examples/uart_arduino/uart_arduino.ino`](examples/uart_arduino/uart_arduino.ino) | UART | Arduino/ESP32 client สำหรับต่อกันเป็น hardware |
 | [`webhook_line.example.php`](webhook_line.example.php) | Webhook + LINE | รับ webhook แล้วส่ง LINE Notify |
 
 ---
@@ -18,8 +20,9 @@
 ## ภาพรวม API ของ ESP32
 
 ```
-http://<ESP32-IP>/          ← REST API (port 80)
+http://<ESP32-IP>/          ← REST API  (port 80)
 ws://<ESP32-IP>:81/         ← WebSocket (port 81)
+UART0 (GPIO1/3) 115200      ← Serial device protocol
 ```
 
 ---
@@ -155,7 +158,88 @@ curl -X POST "http://$IP/api/press?button=stop" -H "TOKEN: $TOKEN"
 
 ---
 
-## 4 · LINE Notify Webhook (PHP)
+## 4 · UART Serial (Python / Arduino)
+
+**ไฟล์:** [`examples/uart_client.py`](examples/uart_client.py) · [`examples/uart_arduino/uart_arduino.ino`](examples/uart_arduino/uart_arduino.ino)
+
+ควบคุมและอ่านสถานะผ่าน Serial โดยตรง ไม่ต้องใช้ WiFi  
+ESP32 ใช้ **UART0 (GPIO1=TX / GPIO3=RX)** บอด **115200**
+
+### โปรโตคอล
+
+**คำสั่งที่ส่งไป (newline terminated)**
+
+| คำสั่ง | ผลลัพธ์ |
+|--------|--------|
+| `open\n`           | เปิดประตู → ตอบ `OK:open` |
+| `close\n`          | ปิดประตู  → ตอบ `OK:close` |
+| `stop\n`           | หยุด      → ตอบ `OK:stop` |
+| `carlink_add\n`    | Carlink เพิ่ม → ตอบ `OK:carlink_add` |
+| `carlink_remove\n` | Carlink ลบ   → ตอบ `OK:carlink_remove` |
+| `sensor\n`         | อ่านสถานะทันที → ตอบ JSON |
+
+**ข้อมูลที่รับจาก ESP32**
+
+```
+READY ip=192.168.1.100          ← ส่งตอน boot
+{"open":false,"closed":true,"opening":false,"closing":false,
+ "car_open":false,"car_closed":false,"status":"closed"}   ← ทุกครั้งที่เปลี่ยน
+OK:open                         ← ยืนยันคำสั่ง
+ERR:unknown:xyz                 ← คำสั่งไม่รู้จัก
+```
+
+### Python Client
+
+```bash
+pip install pyserial
+
+# เลือก port เอง (มีเมนูให้)
+python examples/uart_client.py
+
+# ระบุ port โดยตรง
+python examples/uart_client.py --port COM3
+
+# ฟังอย่างเดียว (ไม่ส่งคำสั่ง)
+python examples/uart_client.py --port COM3 --listen
+```
+
+เมนูใน interactive mode:
+
+```
+1) open               — เปิดประตู
+2) close              — ปิดประตู
+3) stop               — หยุด
+4) carlink_add        — Carlink เพิ่ม
+5) carlink_remove     — Carlink ลบ
+6) sensor             — อ่าน sensor ทันที
+q) ออก
+```
+
+### Arduino / ESP32 Client
+
+**ไฟล์:** [`examples/uart_arduino/uart_arduino.ino`](examples/uart_arduino/uart_arduino.ino)
+
+**การต่อสาย**
+
+```
+SGM ESP32              Arduino / ESP32 อื่น
+─────────              ────────────────────
+TX  (GPIO1) ─────────► RX1
+RX  (GPIO3) ◄───────── TX1
+GND ─────────────────── GND
+```
+
+> **หมายเหตุ:** ถ้า SGM ตั้ง `UART0_DEVICE_MODE 1` ใน firmware  
+> จะไม่มี debug log ออกมา — ใช้ได้กับ hardware โดยตรง
+
+ใช้งาน:
+- เปิด Serial Monitor ที่ 115200 baud
+- พิมพ์ `open` / `close` / `stop` เพื่อสั่ง SGM
+- SGM ส่ง JSON มาอัตโนมัติทุกครั้งที่ sensor เปลี่ยน
+
+---
+
+## 5 · LINE Notify Webhook (PHP)
 
 **ไฟล์:** [`webhook_line.example.php`](webhook_line.example.php)
 
