@@ -1,0 +1,595 @@
+{
+  "info": {
+    "_postman_id": "sgm-2026-api-collection",
+    "name": "HA-SGM-2026 Smart Gate API",
+    "description": "API collection สำหรับ HA-SGM-2026 Smart Gate Module\n\n**ตั้งค่าก่อนใช้:**\n1. แก้ `base_url` เป็น IP ของ ESP32 เช่น `http://192.168.1.80`\n2. แก้ `token` เป็น token ของอุปกรณ์\n\n**Copyright © 2026 Wanchai DIY**",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://192.168.1.80",
+      "description": "IP ของ ESP32 — เปลี่ยนตาม network"
+    },
+    {
+      "key": "token",
+      "value": "YOUR_TOKEN_HERE",
+      "description": "token จาก GET /token?secret=xxx"
+    },
+    {
+      "key": "secret",
+      "value": "YOUR_SECRET_HERE",
+      "description": "secret สำหรับดึง token"
+    }
+  ],
+
+  "item": [
+
+    {
+      "name": "📋 Info & Status",
+      "item": [
+
+        {
+          "name": "Device Info (LAN — ไม่ต้อง token)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "ดูข้อมูลอุปกรณ์ — ใช้ได้เฉพาะ LAN ไม่ต้องใช้ token"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"device\": \"smartgate-a1b2\",\n  \"ip\": \"192.168.1.80\",\n  \"gateway\": \"192.168.1.1\",\n  \"subnet\": \"255.255.255.0\",\n  \"ip_mode\": \"dhcp\",\n  \"ssid\": \"MyWiFi\",\n  \"rssi\": -55,\n  \"mac\": \"AA:BB:CC:DD:EE:FF\",\n  \"mqtt_host\": \"192.168.1.10\",\n  \"mqtt_port\": 1883,\n  \"mqtt_user\": \"user\",\n  \"mqtt_connected\": true,\n  \"webhook_url\": \"https://example.com/webhook\",\n  \"uptime_s\": 3600,\n  \"fw_version\": \"ha-sgm-2026-acdc-2.2-esp32-1.0.0\"\n}",
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has device field', () => {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property('device');",
+                  "  pm.expect(j).to.have.property('ip');",
+                  "  pm.expect(j).to.have.property('ip_mode');",
+                  "  console.log('Device:', j.device, '| IP:', j.ip, '| Mode:', j.ip_mode);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Device Info (with TOKEN header)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}", "description": "API token"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/info",
+              "host": ["{{base_url}}"],
+              "path": ["api", "info"]
+            },
+            "description": "ดูข้อมูลอุปกรณ์ผ่าน TOKEN header — ใช้ได้ทั้ง LAN และ external"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has fw_version', () => {",
+                  "  pm.expect(pm.response.json()).to.have.property('fw_version');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Device Info (with ?token= param)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/info?token={{token}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "info"],
+              "query": [{"key": "token", "value": "{{token}}"}]
+            },
+            "description": "ดูข้อมูลอุปกรณ์ผ่าน query param — สะดวกสำหรับทดสอบใน browser"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Sensor Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/sensor",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sensor"]
+            },
+            "description": "อ่านสถานะ sensor ทั้งหมด real-time"
+          },
+          "response": [
+            {
+              "name": "200 OK — ประตูปิดสนิท",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"open\": false,\n  \"closed\": true,\n  \"opening\": false,\n  \"closing\": false,\n  \"car_open\": false,\n  \"car_closed\": false\n}",
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "name": "200 OK — ประตูกำลังเปิด",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\n  \"open\": false,\n  \"closed\": false,\n  \"opening\": true,\n  \"closing\": false,\n  \"car_open\": false,\n  \"car_closed\": false\n}",
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has sensor fields', () => {",
+                  "  const j = pm.response.json();",
+                  "  ['open','closed','opening','closing','car_open','car_closed'].forEach(k => {",
+                  "    pm.expect(j).to.have.property(k);",
+                  "  });",
+                  "  const status = j.open ? 'OPEN' : j.closed ? 'CLOSED' : j.opening ? 'OPENING' : j.closing ? 'CLOSING' : 'UNKNOWN';",
+                  "  console.log('Gate status:', status);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "🔓 Gate Control",
+      "item": [
+
+        {
+          "name": "เปิดประตู",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/press?button=open",
+              "host": ["{{base_url}}"],
+              "path": ["api", "press"],
+              "query": [{"key": "button", "value": "open"}]
+            },
+            "description": "กดปุ่มเปิดประตู — ตอบ 200 ทันที ไม่รอให้ประตูเปิดเสร็จ"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\"ok\":true}",
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ok: true', () => pm.expect(pm.response.json().ok).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "ปิดประตู",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/press?button=closed",
+              "host": ["{{base_url}}"],
+              "path": ["api", "press"],
+              "query": [{"key": "button", "value": "closed"}]
+            },
+            "description": "กดปุ่มปิดประตู — ถ้ากำลังเปิดอยู่จะหยุดก่อนแล้วค่อยปิด"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ok: true', () => pm.expect(pm.response.json().ok).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "หยุดประตู",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/press?button=stop",
+              "host": ["{{base_url}}"],
+              "path": ["api", "press"],
+              "query": [{"key": "button", "value": "stop"}]
+            },
+            "description": "หยุดการเคลื่อนที่ของประตู"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('ok: true', () => pm.expect(pm.response.json().ok).to.be.true);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Carlink — เพิ่มรถ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/press?car=add",
+              "host": ["{{base_url}}"],
+              "path": ["api", "press"],
+              "query": [{"key": "car", "value": "add"}]
+            },
+            "description": "กดปุ่ม Carlink เพิ่มทะเบียนรถ (กด 500ms)"
+          },
+          "response": []
+        },
+
+        {
+          "name": "Carlink — ลบรถ",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/press?car=remove",
+              "host": ["{{base_url}}"],
+              "path": ["api", "press"],
+              "query": [{"key": "car", "value": "remove"}]
+            },
+            "description": "กดปุ่ม Carlink ลบทะเบียนรถ (กด 6000ms — ใช้เวลานาน)"
+          },
+          "response": []
+        },
+
+        {
+          "name": "❌ Invalid button (400 test)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/press?button=invalid",
+              "host": ["{{base_url}}"],
+              "path": ["api", "press"],
+              "query": [{"key": "button", "value": "invalid"}]
+            },
+            "description": "ทดสอบ argument ผิด — ควรได้ 400"
+          },
+          "response": [
+            {
+              "name": "400 Bad Request",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\"error\":\"invalid. use button=open/closed/stop or car=add/remove\"}",
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "🔑 Token Management",
+      "item": [
+
+        {
+          "name": "ดึง Token ด้วย Secret (LAN only)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/token?secret={{secret}}",
+              "host": ["{{base_url}}"],
+              "path": ["token"],
+              "query": [{"key": "secret", "value": "{{secret}}"}]
+            },
+            "description": "ดึง token โดยใช้ secret — ใช้ได้เฉพาะ LAN\nถ้าผิดเกิน 5 ครั้ง จะล็อกจนกว่าจะ reboot"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\"token\":\"a0fb1e48a17f719b97c6da112a2642cb108e57f984a8351e8379d79cfef1d5d4\"}",
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "name": "401 Wrong Secret (4 remaining)",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\"error\":\"invalid secret\",\"remaining\":4}",
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "name": "423 Locked",
+              "status": "Locked",
+              "code": 423,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\"error\":\"locked — reboot required\"}",
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.test('Has token', () => pm.expect(j).to.have.property('token'));",
+                  "  // บันทึก token เข้า collection variable อัตโนมัติ",
+                  "  pm.collectionVariables.set('token', j.token);",
+                  "  console.log('Token saved:', j.token.substring(0,16) + '...');",
+                  "} else if (pm.response.code === 401) {",
+                  "  const j = pm.response.json();",
+                  "  pm.test('Has remaining', () => pm.expect(j).to.have.property('remaining'));",
+                  "  console.warn('Wrong secret! Remaining attempts:', j.remaining);",
+                  "} else if (pm.response.code === 423) {",
+                  "  console.error('LOCKED! Reboot ESP32 to unlock.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "เปลี่ยน Secret & Token (LAN only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}"},
+              {"key": "Content-Type", "value": "application/x-www-form-urlencoded"}
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {"key": "secret", "value": "new_secret_here", "description": "secret ใหม่"}
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/token",
+              "host": ["{{base_url}}"],
+              "path": ["token"]
+            },
+            "description": "เปลี่ยน secret และ regenerate token ใหม่ — ต้องใช้ TOKEN header ปัจจุบัน"
+          },
+          "response": [
+            {
+              "name": "200 OK — Token changed",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "application/json"}],
+              "body": "{\"ok\":true,\"token\":\"new_token_value...\"}",
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  pm.test('ok: true', () => pm.expect(j.ok).to.be.true);",
+                  "  pm.collectionVariables.set('token', j.token);",
+                  "  console.log('New token saved:', j.token.substring(0,16) + '...');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "⚙️ System",
+      "item": [
+
+        {
+          "name": "Factory Reset (LAN only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "TOKEN", "value": "{{token}}"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/reset",
+              "host": ["{{base_url}}"],
+              "path": ["reset"]
+            },
+            "description": "⚠️ ลบการตั้งค่าทั้งหมดและ reboot — WiFi, MQTT, Token จะหายหมด\nใช้ได้เฉพาะ LAN และต้องมี TOKEN"
+          },
+          "response": [
+            {
+              "name": "200 Resetting",
+              "status": "OK",
+              "code": 200,
+              "header": [{"key": "Content-Type", "value": "text/plain"}],
+              "body": "Resetting...",
+              "_postman_previewlanguage": "text"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "console.warn('⚠️ WARNING: This will factory reset the device!');",
+                  "console.warn('All settings (WiFi, MQTT, Token) will be erased.');"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Reset initiated', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "🔒 Auth Error Tests",
+      "item": [
+
+        {
+          "name": "No token → 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sensor",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sensor"]
+            },
+            "description": "ทดสอบเข้าโดยไม่มี token — ควรได้ 401"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Has error field', () => pm.expect(pm.response.json()).to.have.property('error'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Wrong token → 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {"key": "TOKEN", "value": "wrongtoken1234"}
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/info",
+              "host": ["{{base_url}}"],
+              "path": ["api", "info"]
+            },
+            "description": "ทดสอบ token ผิด — ควรได้ 401"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+
+      ]
+    }
+
+  ]
+}

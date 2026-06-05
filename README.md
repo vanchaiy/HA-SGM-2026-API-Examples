@@ -3,9 +3,10 @@
 [![Platform](https://img.shields.io/badge/Platform-ESP32-red.svg)](https://www.espressif.com/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-compatible-41BDF5?logo=homeassistant)](https://www.home-assistant.io/)
 [![Protocol](https://img.shields.io/badge/Protocol-WebSocket%20%7C%20Webhook%20%7C%20UART-green.svg)]()
+[![Postman](https://img.shields.io/badge/Postman-Collection-FF6C37?logo=postman)](examples/SGM-2026.postman_collection.json)
 [![Copyright](https://img.shields.io/badge/Copyright-Wanchai%20DIY-blue.svg)]()
 
-ตัวอย่างการใช้งาน **REST API · WebSocket · Webhook · UART** สำหรับ **HA-SGM-2026 Smart Gate Module**  
+ตัวอย่างการใช้งาน **REST API · WebSocket · Webhook · UART · Postman** สำหรับ **HA-SGM-2026 Smart Gate Module**  
 ระบบควบคุมประตูอัตโนมัติ ESP32 — เชื่อมต่อ Home Assistant ผ่าน MQTT พร้อม API ครบรูปแบบ
 
 > **Copyright © 2026 Wanchai DIY. All rights reserved.**  
@@ -17,6 +18,7 @@
 
 | ไฟล์ | ประเภท | คำอธิบาย |
 |------|--------|---------|
+| [`examples/SGM-2026.postman_collection.json`](examples/SGM-2026.postman_collection.json) | **Postman** | Collection ครบทุก endpoint พร้อม test scripts |
 | [`examples/webapp_smartgate.html`](examples/webapp_smartgate.html) | Web App | หน้าควบคุมประตู (light theme) — เชื่อมตรง ESP32 |
 | [`examples/liff_smartgate.html`](examples/liff_smartgate.html) | LINE LIFF | หน้าควบคุมประตูบน LINE — login ด้วย LINE account |
 | [`examples/ws_client.html`](examples/ws_client.html) | WebSocket | Browser client — ดูสถานะ sensor แบบ real-time |
@@ -171,7 +173,41 @@ curl -X POST "http://$IP/token" \
 
 ---
 
-## 2 · Web App (Standalone)
+## 2 · Postman Collection
+
+**ไฟล์:** [`examples/SGM-2026.postman_collection.json`](examples/SGM-2026.postman_collection.json)
+
+### วิธี Import
+
+1. เปิด Postman → **Import**
+2. เลือกไฟล์ `SGM-2026.postman_collection.json`
+3. ตั้งค่า **Collection Variables**:
+
+| Variable | ค่า | คำอธิบาย |
+|---|---|---|
+| `base_url` | `http://192.168.1.80` | IP ของ ESP32 |
+| `secret` | `your_secret` | secret ที่ตั้งใน WiFiManager |
+| `token` | *(อัตโนมัติ)* | บันทึกอัตโนมัติหลัง GET /token |
+
+### ขั้นตอนแรก — ดึง Token
+
+รัน **"🔑 Token Management → ดึง Token ด้วย Secret"** → token จะถูกบันทึกลง `{{token}}` อัตโนมัติ ไม่ต้องก็อปวางเอง
+
+### โครงสร้าง Collection
+
+| Folder | Requests |
+|---|---|
+| 📋 Info & Status | Device Info (3 แบบ), Sensor Status |
+| 🔓 Gate Control | เปิด / ปิด / หยุด / Carlink add / remove / Error test |
+| 🔑 Token Management | ดึง token, เปลี่ยน secret |
+| ⚙️ System | Factory Reset |
+| 🔒 Auth Error Tests | No token → 401, Wrong token → 401 |
+
+ทุก request มี **Test Scripts** ตรวจสอบ response อัตโนมัติ
+
+---
+
+## 3 · Web App (Standalone)  
 
 **ไฟล์:** [`examples/webapp_smartgate.html`](examples/webapp_smartgate.html)
 
