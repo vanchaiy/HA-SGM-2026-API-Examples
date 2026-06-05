@@ -1,14 +1,15 @@
 # HA-SGM-2026 — API Examples
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-ESP32-red.svg)](https://www.espressif.com/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-compatible-41BDF5?logo=homeassistant)](https://www.home-assistant.io/)
 [![Protocol](https://img.shields.io/badge/Protocol-WebSocket%20%7C%20Webhook%20%7C%20UART-green.svg)]()
+[![Copyright](https://img.shields.io/badge/Copyright-Wanchai%20DIY-blue.svg)]()
 
 ตัวอย่างการใช้งาน **REST API · WebSocket · Webhook · UART** สำหรับ **HA-SGM-2026 Smart Gate Module**  
 ระบบควบคุมประตูอัตโนมัติ ESP32 — เชื่อมต่อ Home Assistant ผ่าน MQTT พร้อม API ครบรูปแบบ
 
-> **Keywords:** ESP32 gate controller · WebSocket real-time sensor · Webhook LINE notify · UART serial protocol · Home Assistant MQTT · smart gate IoT · ประตูอัตโนมัติ
+> **Copyright © 2026 Wanchai DIY. All rights reserved.**  
+> ห้ามคัดลอก ดัดแปลง หรือนำไปใช้เชิงพาณิชย์โดยไม่ได้รับอนุญาต
 
 ---
 
@@ -25,38 +26,157 @@
 
 ---
 
-## ภาพรวม API ของ SGM
+## ภาพรวมระบบ
 
 ```
-http://<SGM-IP>/            ← REST API  (port 80)
-ws://<SGM-IP>:81/           ← WebSocket (port 81)
-UART0 (GPIO1/3) 115200      ← Serial device protocol
+http://smartgate-xxxx.local/     ← REST API  (port 80)  — LAN
+http://192.168.x.x/              ← REST API  (port 80)  — LAN
+ws://192.168.x.x:81/             ← WebSocket (port 81)
+UART0 (GPIO1/3) 115200           ← Serial device protocol
+```
+
+> `xxxx` คือ 4 หลัก hex จาก MAC address ของแต่ละตัว เช่น `smartgate-a1b2`
+
+---
+
+## REST API
+
+### สรุป Endpoints
+
+| Method | Endpoint | Auth | LAN Only | คำอธิบาย |
+|--------|----------|------|----------|---------|
+| `GET`  | `/`              | —                    | ✅ | Device info (ไม่ต้อง token) |
+| `GET`  | `/api/info`      | TOKEN (header/query) | ❌ | Device info |
+| `GET`  | `/api/sensor`    | TOKEN (header/query) | ❌ | สถานะ sensor ทั้งหมด |
+| `POST` | `/api/press`     | TOKEN (header)       | ❌ | สั่งกดปุ่ม |
+| `GET`  | `/token`         | `?secret=`           | ✅ | ดึง token จาก secret |
+| `POST` | `/token`         | TOKEN (header) + secret | ✅ | เปลี่ยน secret และ token |
+| `POST` | `/reset`         | TOKEN (header)       | ✅ | Factory reset |
+
+> **LAN Only** — เข้าได้เฉพาะ `http://192.168.x.x` หรือ `http://smartgate-xxxx.local` เท่านั้น  
+> การเข้าผ่าน proxy / tunnel / โดเมนภายนอกจะได้รับ `403`
+
+---
+
+### Token Authentication
+
+Token สร้างจาก `SHA256(secret + MAC address)` ใส่ได้ 2 วิธี:
+
+```bash
+# วิธีที่ 1 — Query parameter
+GET /api/sensor?token=<TOKEN>
+
+# วิธีที่ 2 — HTTP Header
+GET /api/info
+TOKEN: <TOKEN>
 ```
 
 ---
 
-## 1 · WebSocket Client (Browser)
+### ตัวอย่างการใช้งาน
 
-**ไฟล์:** [`examples/ws_client.html`](examples/ws_client.html)
+```bash
+IP="192.168.1.80"
+TOKEN="your_token_here"
 
-เปิดไฟล์ในเบราว์เซอร์โดยตรง ไม่ต้องติดตั้งอะไร
+# ── Device Info ──────────────────────────────────────────
+# จาก LAN (ไม่ต้อง token)
+curl "http://$IP/"
 
-![ws_client screenshot](screenshot/ws_client.png)
+# จากภายนอก (ต้องใช้ token)
+curl "http://$IP/api/info?token=$TOKEN"
+curl "http://$IP/api/info" -H "TOKEN: $TOKEN"
 
-**วิธีใช้**
+# ── Sensor ───────────────────────────────────────────────
+curl "http://$IP/api/sensor?token=$TOKEN"
+curl "http://$IP/api/sensor" -H "TOKEN: $TOKEN"
 
-1. เปิดไฟล์ `examples/ws_client.html` ในเบราว์เซอร์
-2. กรอก IP ของ SGM และ Token (ถ้าตั้งไว้)
-3. กด **เชื่อมต่อ** — sensor state อัพเดตอัตโนมัติทุกครั้งที่เปลี่ยน
+# ── กดปุ่ม ───────────────────────────────────────────────
+curl -X POST "http://$IP/api/press?button=open"  -H "TOKEN: $TOKEN"
+curl -X POST "http://$IP/api/press?button=closed" -H "TOKEN: $TOKEN"
+curl -X POST "http://$IP/api/press?button=stop"  -H "TOKEN: $TOKEN"
 
-**Protocol**
+# car button
+curl -X POST "http://$IP/api/press?car=add"    -H "TOKEN: $TOKEN"
+curl -X POST "http://$IP/api/press?car=remove" -H "TOKEN: $TOKEN"
+
+# ── Token ─────────────────────────────────────────────────
+# ดึง token (LAN only)
+curl "http://$IP/token?secret=your_secret"
+
+# เปลี่ยน secret และ token ใหม่ (LAN only)
+curl -X POST "http://$IP/token" \
+     -H "TOKEN: $TOKEN" \
+     -d "secret=new_secret"
+```
+
+---
+
+### Response: `/api/sensor`
+
+```json
+{
+  "open":       false,
+  "closed":     true,
+  "opening":    false,
+  "closing":    false,
+  "car_open":   false,
+  "car_closed": false
+}
+```
+
+### Response: `/api/info`
+
+```json
+{
+  "device":         "smartgate-a1b2",
+  "ip":             "192.168.1.80",
+  "ssid":           "MyWiFi",
+  "rssi":           -55,
+  "mac":            "AA:BB:CC:DD:EE:FF",
+  "mqtt_host":      "192.168.1.10",
+  "mqtt_port":      1883,
+  "mqtt_user":      "user",
+  "mqtt_connected": true,
+  "webhook_url":    "https://example.com/webhook",
+  "uptime_s":       3600,
+  "fw_version":     "ha-sgm-2026-acdc-2.2-esp32-1.0.0"
+}
+```
+
+### Response: `/token` (POST)
+
+```json
+{
+  "ok":    true,
+  "token": "new_token_value..."
+}
+```
+
+---
+
+### Token Brute-Force Protection
+
+`GET /token` มีระบบป้องกัน brute-force — กรอก secret ผิดเกิน **5 ครั้ง** จะล็อกทันทีจนกว่าจะ reboot ESP32
+
+```json
+// ผิด ครั้งที่ 1–4
+{ "error": "invalid secret", "remaining": 3 }
+
+// ผิด ครั้งที่ 5 (ล็อก)
+{ "error": "locked — reboot required" }
+```
+
+---
+
+## 2 · WebSocket
 
 ```
 URL: ws://<IP>:81/
 URL (มี token): ws://<IP>:81/?token=<TOKEN>
 ```
 
-Message ที่ได้รับ:
+ESP32 push JSON ทุกครั้งที่ sensor เปลี่ยนสถานะ:
 
 ```json
 {
@@ -73,35 +193,27 @@ Message ที่ได้รับ:
 
 ```bash
 npm install -g wscat
-wscat -c "ws://192.168.1.100:81/?token=your_token"
+wscat -c "ws://192.168.1.80:81/?token=your_token"
 ```
+
+**ไฟล์:** [`examples/ws_client.html`](examples/ws_client.html) — เปิดในเบราว์เซอร์โดยตรง
+
+![ws_client screenshot](screenshot/ws_client.png)
 
 ---
 
-## 2 · Webhook Receiver (Python)
+## 3 · Webhook
 
-**ไฟล์:** [`examples/webhook_receiver.py`](examples/webhook_receiver.py)
+SGM ส่ง HTTP POST ทุกครั้งที่ sensor เปลี่ยนสถานะ
 
-รับ HTTP POST จาก SGM ทุกครั้งที่ sensor เปลี่ยนสถานะ
-
-**ติดตั้งและรัน**
-
-```bash
-pip install flask
-# ตั้ง token ให้ตรงกับ SGM (หรือไม่ตั้งก็ได้)
-WEBHOOK_TOKEN=your_token python examples/webhook_receiver.py
-```
-
-Endpoint: `http://your-server:5000/webhook`
-
-**Payload ที่รับ**
+**Payload:**
 
 ```json
 {
-  "device": "HA-SGM-2026",
+  "device": "smartgate-a1b2",
   "sensor": "open",
   "state":  "ON",
-  "ip":     "192.168.1.100"
+  "ip":     "192.168.1.80"
 }
 ```
 
@@ -114,192 +226,89 @@ Endpoint: `http://your-server:5000/webhook`
 | `car_open`   | รถผ่านฝั่งเปิด |
 | `car_closed` | รถผ่านฝั่งปิด |
 
-**ตั้งค่า Webhook URL ใน SGM**
+**ตั้งค่า:** WiFiManager Config Portal → กรอก Webhook URL และ Secret
 
-ผ่าน WiFiManager Config Portal → กรอก Webhook URL เป็น `http://your-server:5000/webhook`
-
-หรือถ้าใช้ ngrok เพื่อรับจาก internet:
+**Python receiver:** [`examples/webhook_receiver.py`](examples/webhook_receiver.py)
 
 ```bash
-ngrok http 5000
-# แล้วใช้ URL จาก ngrok เช่น https://xxxx.ngrok-free.app/webhook
+pip install flask
+WEBHOOK_TOKEN=your_token python examples/webhook_receiver.py
 ```
+
+**LINE Notify:** [`examples/webhook_line.example.php`](examples/webhook_line.example.php)
 
 ---
 
-## 3 · REST API (curl)
+## 4 · UART Serial
 
-**ไฟล์:** [`examples/api_examples.sh`](examples/api_examples.sh)
+ควบคุมผ่าน Serial โดยตรง ไม่ต้องใช้ WiFi  
+**UART0 · GPIO1=TX / GPIO3=RX · 115200 baud**
 
-```bash
-# แก้ค่า IP และ TOKEN ในไฟล์ก่อน แล้วรัน
-bash examples/api_examples.sh
-```
-
-**Endpoints สรุป**
-
-| Method | Path | Auth | คำอธิบาย |
-|--------|------|------|---------|
-| `GET`  | `/api/info`   | ไม่ต้อง | ข้อมูลอุปกรณ์ |
-| `GET`  | `/api/sensor` | `?token=` | สถานะ sensor ปัจจุบัน |
-| `POST` | `/api/press`  | Header `TOKEN` | สั่งเปิด/ปิด/หยุด |
-| `GET`  | `/api/token`  | `?secret=` | ดึง token จาก secret |
-
-**ตัวอย่าง**
-
-```bash
-IP="192.168.1.100"
-TOKEN="your_token"
-
-# ดูสถานะ
-curl "http://$IP/api/sensor?token=$TOKEN"
-
-# เปิดประตู
-curl -X POST "http://$IP/api/press?button=open" -H "TOKEN: $TOKEN"
-
-# ปิดประตู
-curl -X POST "http://$IP/api/press?button=closed" -H "TOKEN: $TOKEN"
-
-# หยุด
-curl -X POST "http://$IP/api/press?button=stop" -H "TOKEN: $TOKEN"
-```
-
----
-
-## 4 · UART Serial (Python / Arduino)
-
-**ไฟล์:** [`examples/uart_client.py`](examples/uart_client.py) · [`examples/uart_arduino/uart_arduino.ino`](examples/uart_arduino/uart_arduino.ino)
-
-ควบคุมและอ่านสถานะผ่าน Serial โดยตรง ไม่ต้องใช้ WiFi  
-SGM ใช้ **UART0 (GPIO1=TX / GPIO3=RX)** บอด **115200**
-
-### โปรโตคอล
-
-**คำสั่งที่ส่งไป (newline terminated)**
+### คำสั่ง
 
 | คำสั่ง | ผลลัพธ์ |
 |--------|--------|
-| `open\n`           | เปิดประตู → ตอบ `OK:open` |
-| `close\n`          | ปิดประตู  → ตอบ `OK:close` |
-| `stop\n`           | หยุด      → ตอบ `OK:stop` |
-| `carlink_add\n`    | Carlink เพิ่ม → ตอบ `OK:carlink_add` |
-| `carlink_remove\n` | Carlink ลบ   → ตอบ `OK:carlink_remove` |
-| `sensor\n`         | อ่านสถานะทันที → ตอบ JSON |
+| `open\n`           | เปิดประตู → `OK:open` |
+| `close\n`          | ปิดประตู  → `OK:close` |
+| `stop\n`           | หยุด      → `OK:stop` |
+| `carlink_add\n`    | Carlink เพิ่ม → `OK:carlink_add` |
+| `carlink_remove\n` | Carlink ลบ   → `OK:carlink_remove` |
+| `sensor\n`         | อ่านสถานะ → JSON |
 
-**ข้อมูลที่รับจาก SGM**
+### ข้อมูลที่รับจาก SGM
 
 ```
-READY ip=192.168.1.100          ← ส่งตอน boot
-{"open":false,"closed":true,"opening":false,"closing":false,
- "car_open":false,"car_closed":false,"status":"closed"}   ← ทุกครั้งที่เปลี่ยน
-OK:open                         ← ยืนยันคำสั่ง
-ERR:unknown:xyz                 ← คำสั่งไม่รู้จัก
+READY ip=192.168.1.80
+{"open":false,"closed":true,...,"status":"closed"}
+OK:open
+ERR:unknown:xyz
 ```
 
 ### Python Client
 
 ```bash
 pip install pyserial
-
-# เลือก port เอง (มีเมนูให้)
 python examples/uart_client.py
-
-# ระบุ port โดยตรง
 python examples/uart_client.py --port COM3
-
-# ฟังอย่างเดียว (ไม่ส่งคำสั่ง)
 python examples/uart_client.py --port COM3 --listen
 ```
 
-เมนูใน interactive mode:
+### Arduino Client — การต่อสาย
 
 ```
-1) open               — เปิดประตู
-2) close              — ปิดประตู
-3) stop               — หยุด
-4) carlink_add        — Carlink เพิ่ม
-5) carlink_remove     — Carlink ลบ
-6) sensor             — อ่าน sensor ทันที
-q) ออก
+SGM (TX GPIO1) ──► Arduino RX1
+SGM (RX GPIO3) ◄── Arduino TX1
+SGM GND        ─── Arduino GND
 ```
-
-### Arduino Client
-
-**ไฟล์:** [`examples/uart_arduino/uart_arduino.ino`](examples/uart_arduino/uart_arduino.ino)
-
-**การต่อสาย**
-
-```
-SGM                    Arduino / MCU อื่น
-─────────              ────────────────────
-TX  (GPIO1) ─────────► RX1
-RX  (GPIO3) ◄───────── TX1
-GND ─────────────────── GND
-```
-
-> **หมายเหตุ:** ถ้า SGM ตั้ง `UART0_DEVICE_MODE 1` ใน firmware  
-> จะไม่มี debug log ออกมา — ใช้ได้กับ hardware โดยตรง
-
-ใช้งาน:
-- เปิด Serial Monitor ที่ 115200 baud
-- พิมพ์ `open` / `close` / `stop` เพื่อสั่ง SGM
-- SGM ส่ง JSON มาอัตโนมัติทุกครั้งที่ sensor เปลี่ยน
 
 ---
 
-## 5 · LINE Notify Webhook (PHP)
+## WiFiManager Config Portal
 
-**ไฟล์:** [`webhook_line.example.php`](webhook_line.example.php)
+เมื่อ ESP32 ยังไม่ได้ตั้งค่า WiFi จะเปิด Hotspot:
 
-**วิธีใช้**
-
-```bash
-cp webhook_line.example.php webhook_line.php
-# แก้ไขค่า config ในไฟล์ webhook_line.php
+```
+Hotspot-SmartGate-xxxx   (xxxx = 4 หลัก hex จาก MAC)
 ```
 
-แก้ค่าในไฟล์:
+เชื่อมต่อแล้วเปิด browser ไปที่ `http://8.8.8.8`
 
-```php
-define('WEBHOOK_TOKEN',  'token จาก SGM');
-define('LINE_TOKEN',     'LINE Channel Access Token');
-define('LINE_SECRET',    'LINE Channel Secret');
-define('LINE_GROUP_ID',  'Group ID ที่จะแจ้งเตือน');
-define('SGM_API_URL',    'https://your-sgm-ngrok-url');
-```
-
-ฟีเจอร์:
-- SGM ส่ง webhook → PHP ส่งข้อความเข้ากลุ่ม LINE
-- พิมพ์ "เปิดประตู" ในกลุ่ม LINE → PHP สั่ง SGM เปิดประตู
-
----
-
-## การได้ Token
-
-Token สร้างจาก `SHA256(secret + MAC address)` ของ SGM
-
-```bash
-# วิธีที่ 1: ผ่าน API
-curl "http://192.168.1.100/api/token?secret=your_secret"
-
-# วิธีที่ 2: ผ่าน WiFiManager Config Portal
-# กรอก "API & Webhook Secret" แล้ว Save
-```
+| ฟิลด์ | คำอธิบาย |
+|-------|---------|
+| Friendly Name | ชื่ออุปกรณ์ (default: `smartgate-xxxx`) |
+| MQTT Broker IP | IP ของ MQTT broker |
+| MQTT User / Password | credentials |
+| Webhook URL | URL สำหรับรับ webhook |
+| API & Webhook Secret | secret สำหรับสร้าง token |
 
 ---
 
 ## Related
 
-- [SGM firmware repo](https://github.com/wanchaidiy/ha_sgm_2026_esp32) — ESP32 firmware source code
-- [Home Assistant](https://www.home-assistant.io/) — open source home automation
-- [LINE Messaging API](https://developers.line.biz/en/docs/messaging-api/) — LINE bot integration
+- [SGM firmware repo](https://github.com/wanchaidiy/ha_sgm_2026_esp32)
+- [Home Assistant](https://www.home-assistant.io/)
+- [LINE Messaging API](https://developers.line.biz/en/docs/messaging-api/)
 
 ---
 
-## License
-
-MIT
-
----
-
-*HA-SGM-2026 · ESP32 Smart Gate · WebSocket · Webhook · UART · Home Assistant · MQTT · LINE Notify · IoT · ประตูอัตโนมัติ*
+*HA-SGM-2026 · ESP32 Smart Gate · WebSocket · Webhook · UART · Home Assistant · MQTT · LINE Notify · IoT · ประตูอัตโนมัติ · Wanchai DIY*
