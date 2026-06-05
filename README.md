@@ -370,7 +370,7 @@ Hotspot-SmartGate-xxxx   (xxxx = 4 หลัก hex จาก MAC)
 
 ## Related
 
-- [HomeAssistant Gate Control Card]((https://github.com/vanchaiy/HA-Gate-Control-Card))
+- [HomeAssistant Gate Control Card](https://github.com/vanchaiy/HA-Gate-Control-Card)
 - [Home Assistant](https://www.home-assistant.io/)
 - [LINE Messaging API](https://developers.line.biz/en/docs/messaging-api/)
 
