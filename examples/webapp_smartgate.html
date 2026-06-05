@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SmartGate</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+    :root {
+      --bg:        #eef2f7;
+      --card:      #ffffff;
+      --blue:      #2563eb;
+      --blue-lt:   #eff6ff;
+      --blue-mid:  #bfdbfe;
+      --green:     #16a34a;
+      --green-lt:  #f0fdf4;
+      --amber:     #d97706;
+      --amber-lt:  #fffbeb;
+      --red:       #dc2626;
+      --red-lt:    #fef2f2;
+      --text:      #0f172a;
+      --text2:     #475569;
+      --muted:     #94a3b8;
+      --border:    #e2e8f0;
+      --shadow:    0 2px 12px rgba(0,0,0,.07);
+      --shadow-lg: 0 8px 32px rgba(37,99,235,.18);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100dvh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-start;
+      padding: 0 0 40px;
+      user-select: none; -webkit-user-select: none;
+    }
+
+    /* ── LOADING ── */
+    #screen-loading {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      z-index: 99;
+    }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── LOGIN ── */
+    #screen-login {
+      width: 100%; max-width: 400px; padding: 48px 24px;
+      display: flex; flex-direction: column; align-items: center; gap: 28px;
+    }
+    .login-hero {
+      width: 80px; height: 80px; border-radius: 24px;
+      background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+      box-shadow: 0 12px 32px #2563eb40;
+    }
+    .login-title { font-size: 26px; font-weight: 800; color: var(--text); }
+    .login-sub   { font-size: 14px; color: var(--muted); text-align: center; line-height: 1.6; }
+    .login-card  {
+      width: 100%; background: var(--card);
+      border-radius: 24px; padding: 28px;
+      box-shadow: var(--shadow);
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .field-label {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      letter-spacing: .8px; text-transform: uppercase;
+    }
+    .pin-input {
+      width: 100%; background: var(--bg);
+      border: 1.5px solid var(--border); border-radius: 14px;
+      color: var(--text); font-size: 26px; font-weight: 700;
+      padding: 16px; letter-spacing: 8px; text-align: center; outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .pin-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #2563eb18; }
+    .pin-input.error { border-color: var(--red); animation: shake .35s; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60%  { transform: translateX(-6px); }
+      40%,80%  { transform: translateX(6px); }
+    }
+    .login-err { font-size: 13px; color: var(--red); text-align: center; min-height: 18px; }
+    .btn-login {
+      width: 100%; padding: 16px;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      border: none; border-radius: 14px; color: #fff;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 6px 20px #2563eb30;
+      transition: transform .1s, opacity .2s;
+    }
+    .btn-login:active { transform: scale(.97); opacity: .9; }
+
+    /* ── APP WRAPPER ── */
+    #screen-app { width: 100%; max-width: 420px; display: flex; flex-direction: column; }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      background: var(--card);
+      padding: 52px 24px 20px;
+      display: flex; align-items: flex-end; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar-left {}
+    .topbar-greeting { font-size: 13px; color: var(--muted); font-weight: 500; }
+    .topbar-title    { font-size: 22px; font-weight: 800; color: var(--text); margin-top: 2px; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .conn-pill {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 20px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      font-size: 12px; font-weight: 600; color: var(--muted);
+      transition: all .3s;
+    }
+    .conn-pill.online { background: var(--green-lt); border-color: #86efac; color: var(--green); }
+    .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .btn-out {
+      width: 36px; height: 36px; border-radius: 12px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; cursor: pointer; color: var(--text2);
+      transition: background .2s;
+    }
+    .btn-out:active { background: var(--border); }
+
+    /* ── CONTENT ── */
+    .content { padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; }
+
+    /* ── STATUS CARD ── */
+    .status-card {
+      background: var(--card); border-radius: 24px;
+      padding: 24px 20px;
+      box-shadow: var(--shadow);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      border: 2px solid transparent;
+      transition: border-color .4s, background .4s;
+      position: relative; overflow: hidden;
+    }
+    .status-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, #eff6ff 0%, transparent 60%);
+      pointer-events: none;
+      opacity: 0; transition: opacity .4s;
+    }
+    .status-card.s-open    { border-color: #86efac; background: var(--green-lt); }
+    .status-card.s-open::before { opacity: 0; }
+    .status-card.s-opening { border-color: #fcd34d; background: var(--amber-lt); }
+    .status-card.s-closing { border-color: #fcd34d; background: var(--amber-lt); }
+    .status-card.s-error   { border-color: #fca5a5; background: var(--red-lt);   }
+    .status-card.s-half    { border-color: #c4b5fd; background: #f5f3ff;         }
+    .status-card.s-connect { border-color: var(--blue-mid); background: var(--blue-lt); }
+    .status-card.s-connect::before { opacity: 1; }
+
+    .status-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: .5px;
+      background: #e2e8f0; color: var(--text2);
+      align-self: flex-start;
+    }
+    .status-badge.b-open    { background: #dcfce7; color: var(--green); }
+    .status-badge.b-opening { background: #fef3c7; color: var(--amber); }
+    .status-badge.b-closing { background: #fef3c7; color: var(--amber); }
+    .status-badge.b-error   { background: #fee2e2; color: var(--red);   }
+    .status-badge.b-half    { background: #ede9fe; color: #7c3aed;      }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .status-icon  { width: 100%; max-width: 260px; }
+    .status-label {
+      font-size: 26px; font-weight: 800; letter-spacing: .3px;
+      color: var(--text);
+    }
+    .status-card.s-open    .status-label { color: var(--green); }
+    .status-card.s-opening .status-label { color: var(--amber); }
+    .status-card.s-closing .status-label { color: var(--amber); }
+    .status-card.s-error   .status-label { color: var(--red);   }
+    .status-card.s-half    .status-label { color: #7c3aed;      }
+    .status-card.s-connect .status-label { color: var(--blue);  }
+    .status-sub { font-size: 13px; color: var(--muted); }
+
+    @keyframes hg-flip {
+      0%,40%  { transform: rotate(0deg);   }
+      50%,90% { transform: rotate(180deg); }
+      100%    { transform: rotate(180deg); }
+    }
+    .hg-svg { animation: hg-flip 2.6s ease-in-out infinite; transform-origin: 40px 50px; }
+
+    /* ── SENSOR GRID ── */
+    .section-title {
+      font-size: 13px; font-weight: 700; color: var(--text2);
+      letter-spacing: .3px; margin-bottom: 2px;
+    }
+    .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sensor-item {
+      background: var(--card); border-radius: 16px;
+      padding: 14px 16px; box-shadow: var(--shadow);
+      display: flex; align-items: center; gap: 10px;
+      transition: background .3s;
+    }
+    .sensor-icon-wrap {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+      transition: background .3s;
+    }
+    .sensor-item.active .sensor-icon-wrap { background: var(--blue-lt); }
+    .sensor-item.active-amber .sensor-icon-wrap { background: var(--amber-lt); }
+    .sensor-info { flex: 1; min-width: 0; }
+    .sensor-name { font-size: 12px; color: var(--muted); font-weight: 500; }
+    .sensor-val  {
+      font-size: 13px; font-weight: 700; color: var(--muted); margin-top: 2px;
+      transition: color .3s;
+    }
+    .sensor-item.active       .sensor-val { color: var(--blue); }
+    .sensor-item.active-amber .sensor-val { color: var(--amber); }
+    .toggle-pill {
+      width: 34px; height: 20px; border-radius: 10px; flex-shrink: 0;
+      background: var(--border); position: relative; transition: background .3s;
+    }
+    .toggle-pill::after {
+      content: ''; position: absolute;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fff; top: 3px; left: 3px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+      transition: transform .3s;
+    }
+    .sensor-item.active       .toggle-pill { background: var(--blue); }
+    .sensor-item.active-amber .toggle-pill { background: var(--amber); }
+    .sensor-item.active       .toggle-pill::after,
+    .sensor-item.active-amber .toggle-pill::after { transform: translateX(14px); }
+
+    /* ── CONTROL BUTTONS ── */
+    .btn-open {
+      width: 100%; padding: 20px;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      border: none; border-radius: 20px; color: #fff;
+      font-size: 18px; font-weight: 800; letter-spacing: .5px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+      box-shadow: var(--shadow-lg);
+      transition: transform .1s, box-shadow .2s, opacity .2s;
+    }
+    .btn-open:active  { transform: scale(.97); box-shadow: 0 4px 16px #2563eb30; }
+    .btn-open:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    .btn-open.pressed { background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+
+    .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn-sec {
+      padding: 16px;
+      background: var(--card); border: 1.5px solid var(--border);
+      border-radius: 18px; font-size: 15px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      box-shadow: var(--shadow);
+      transition: transform .1s, opacity .2s;
+    }
+    .btn-sec:active   { transform: scale(.97); opacity: .8; }
+    .btn-sec:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+    .btn-close { color: var(--red);   border-color: #fca5a5; background: var(--red-lt);   }
+    .btn-stop  { color: var(--amber); border-color: #fcd34d; background: var(--amber-lt); }
+
+    /* ── FOOTER ── */
+    .last-update { text-align: center; font-size: 11px; color: var(--muted); padding-top: 4px; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #0f172a; color: #f1f5f9;
+      padding: 12px 22px; border-radius: 50px;
+      font-size: 14px; font-weight: 600;
+      opacity: 0; transition: opacity .3s, transform .3s;
+      pointer-events: none; white-space: nowrap; z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,.15);
+    }
+    #toast.show    { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.success { background: #14532d; }
+    #toast.error   { background: #7f1d1d; }
+    #toast.warn    { background: #78350f; }
+
+    [hidden] { display: none !important; }
+    * { -webkit-touch-callout: none; }
+  </style>
+</head>
+<body oncontextmenu="return false">
+
+<!-- ══ LOADING ══ -->
+<div id="screen-loading">
+  <div class="spinner"></div>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="screen-login" hidden>
+  <div class="login-hero">🏘️</div>
+  <div class="login-title">SmartGate</div>
+  <div class="login-sub">ระบบควบคุมประตูอัจฉริยะ<br>กรุณากรอกรหัสผ่านเพื่อเข้าใช้งาน</div>
+  <div class="login-card">
+    <div class="field-label">รหัสผ่าน</div>
+    <input id="pass-input" class="pin-input" type="password"
+           inputmode="numeric" maxlength="10" placeholder="••••••••••"
+           onkeydown="if(event.key==='Enter') submitPass()">
+    <div class="login-err" id="login-err"></div>
+    <button class="btn-login" onclick="submitPass()">เข้าใช้งาน</button>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="screen-app" hidden>
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-greeting">ยินดีต้อนรับ 👋</div>
+      <div class="topbar-title">SmartGate</div>
+    </div>
+    <div class="topbar-right">
+      <div class="conn-pill" id="conn-pill">
+        <div class="conn-dot"></div>
+        <span id="conn-text">ออฟไลน์</span>
+      </div>
+      <button class="btn-out" onclick="logout()" title="ออกจากระบบ">↩</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- Status Card -->
+    <div class="status-card s-connect" id="status-card">
+      <div class="status-badge" id="status-badge">
+        <div class="badge-dot"></div>
+        <span id="badge-text">กำลังเชื่อมต่อ</span>
+      </div>
+      <div class="status-icon" id="status-icon"></div>
+      <div class="status-label" id="status-label">กำลังเชื่อมต่อ...</div>
+      <div class="status-sub"   id="status-sub">โปรดรอสักครู่</div>
+    </div>
+
+    <!-- Open Button -->
+    <button class="btn-open" id="btn-open" onclick="pressBtn('open')" disabled>
+      🔓 &nbsp;เปิดประตู
+    </button>
+
+    <!-- Close / Stop -->
+    <div class="btn-row">
+      <button class="btn-sec btn-close" id="btn-close" onclick="pressBtn('closed')" disabled>
+        🔒 ปิดประตู
+      </button>
+      <button class="btn-sec btn-stop"  id="btn-stop"  onclick="pressBtn('stop')"   disabled>
+        ✋ หยุด
+      </button>
+    </div>
+
+    <!-- Sensor Grid -->
+    <div class="section-title">สถานะเซ็นเซอร์</div>
+    <div class="sensor-grid">
+      <div class="sensor-item" id="si-open">
+        <div class="sensor-icon-wrap">🚪</div>
+        <div class="sensor-info">
+          <div class="sensor-name">เปิดอยู่</div>
+          <div class="sensor-val" id="val-open">OFF</div>
+        </div>
+        <div class="toggle-pill"></div>
+      </div>
+      <div class="sensor-item" id="si-closed">
+        <div class="sensor-icon-wrap">🔒</div>
+        <div class="sensor-info">
+          <div class="sensor-name">ปิดสนิท</div>
+          <div class="sensor-val" id="val-closed">OFF</div>
+        </div>
+        <div class="toggle-pill"></div>
+      </div>
+      <div class="sensor-item" id="si-opening">
+        <div class="sensor-icon-wrap">↗️</div>
+        <div class="sensor-info">
+          <div class="sensor-name">กำลังเปิด</div>
+          <div class="sensor-val" id="val-opening">OFF</div>
+        </div>
+        <div class="toggle-pill"></div>
+      </div>
+      <div class="sensor-item" id="si-closing">
+        <div class="sensor-icon-wrap">↙️</div>
+        <div class="sensor-info">
+          <div class="sensor-name">กำลังปิด</div>
+          <div class="sensor-val" id="val-closing">OFF</div>
+        </div>
+        <div class="toggle-pill"></div>
+      </div>
+    </div>
+
+    <div class="last-update">อัปเดตล่าสุด: <span id="last-time">–</span></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+const CONFIG = {
+  API_URL:     "http://192.168.1.80",
+  WS_URL:      "ws://192.168.1.80:81",
+  TOKEN:       "YOUR_TOKEN_HERE",
+  STORAGE_KEY: "sgm_auth",
+};
+// ────────────────────────────────────────────────────────────
+
+document.addEventListener("contextmenu",  e => e.preventDefault());
+document.addEventListener("selectstart",  e => e.preventDefault());
+document.addEventListener("dragstart",    e => e.preventDefault());
+document.addEventListener("keydown", e => {
+  const k=e.key, c=e.ctrlKey||e.metaKey, s=e.shiftKey;
+  if (k==="F12")                                   { e.preventDefault(); return; }
+  if (c && (k==="u"||k==="s"||k==="a"))            { e.preventDefault(); return; }
+  if (c && s && "ijcIJC".includes(k))              { e.preventDefault(); }
+});
+document.addEventListener("touchstart", e => {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+
+// ── Storage ──
+const store = {
+  get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k,v) => { try { localStorage.setItem(k,v); } catch {} },
+  del: k => { try { localStorage.removeItem(k); } catch {} },
+};
+
+// ── รหัสผ่าน = YYYYMMDDHH ──
+function currentPass() {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}${String(d.getHours()).padStart(2,"0")}`;
+}
+const isAuthed = () => store.get(CONFIG.STORAGE_KEY) === "ok";
+
+// ── Screens ──
+function show(s) {
+  ["loading","login","app"].forEach(n =>
+    document.getElementById(`screen-${n}`).hidden = n !== s
+  );
+}
+
+// ── Init ──
+function initApp() { isAuthed() ? startMainApp() : show("login"); }
+
+// ── Login ──
+function submitPass() {
+  const input = document.getElementById("pass-input");
+  const err   = document.getElementById("login-err");
+  if (input.value.trim() === currentPass()) {
+    store.set(CONFIG.STORAGE_KEY, "ok");
+    err.textContent = "";
+    startMainApp();
+  } else {
+    err.textContent = "รหัสผ่านไม่ถูกต้อง";
+    input.classList.add("error");
+    input.value = "";
+    setTimeout(() => input.classList.remove("error"), 400);
+  }
+}
+
+// ── Logout ──
+function logout() {
+  disconnectWS(); stopPolling();
+  store.del(CONFIG.STORAGE_KEY);
+  show("login");
+  document.getElementById("pass-input").value = "";
+}
+
+// ── WebSocket ──
+let ws = null, wsTimer = null;
+function connectWS() {
+  clearTimeout(wsTimer);
+  const url = CONFIG.TOKEN
+    ? `${CONFIG.WS_URL}/?token=${encodeURIComponent(CONFIG.TOKEN)}`
+    : CONFIG.WS_URL;
+  ws = new WebSocket(url);
+  ws.onopen    = () => setConnected(true);
+  ws.onmessage = e => { try { applyStatus(JSON.parse(e.data)); } catch {} };
+  ws.onclose   =
+  ws.onerror   = () => { setConnected(false); wsTimer = setTimeout(connectWS, 5000); };
+}
+function disconnectWS() {
+  clearTimeout(wsTimer);
+  if (ws) { ws.onclose = ws.onerror = null; ws.close(); ws = null; }
+}
+
+// ── Polling ──
+let pollTimer = null;
+function startPolling() {
+  if (pollTimer) return;
+  fetchStatus();
+  pollTimer = setInterval(fetchStatus, 3000);
+}
+function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
+
+async function fetchStatus() {
+  try {
+    const url = `${CONFIG.API_URL}/api/sensor${CONFIG.TOKEN?"?token="+encodeURIComponent(CONFIG.TOKEN):""}`;
+    const res = await fetch(url, {
+      headers: { "ngrok-skip-browser-warning": "1" },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.status === 401) { lockUnauthorized(); return; }
+    if (!res.ok) throw new Error();
+    applyStatus(await res.json());
+    setConnected(true);
+  } catch { setConnected(false); }
+}
+
+// ── Start ──
+function startMainApp() {
+  show("app");
+  document.getElementById("status-icon").innerHTML = hourglassSVG();
+  if (CONFIG.WS_URL) connectWS(); else startPolling();
+}
+
+// ── SVG ──
+function hourglassSVG() {
+  return `<svg class="hg-svg" viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg"
+    style="display:block;margin:0 auto;width:80px;height:100px">
+    <rect x="10" y="4"  width="60" height="7" rx="3.5" fill="#94a3b8"/>
+    <rect x="10" y="89" width="60" height="7" rx="3.5" fill="#94a3b8"/>
+    <line x1="14" y1="11" x2="40" y2="49" stroke="#cbd5e1" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="66" y1="11" x2="40" y2="49" stroke="#cbd5e1" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="14" y1="89" x2="40" y2="51" stroke="#cbd5e1" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="66" y1="89" x2="40" y2="51" stroke="#cbd5e1" stroke-width="3.5" stroke-linecap="round"/>
+    <polygon points="14,11 66,11 40,49" fill="#3b82f6" opacity="0.75"/>
+    <polygon points="14,89 66,89 40,51" fill="#3b82f6" opacity="0.25"/>
+    <circle cx="40" cy="50" r="3" fill="#3b82f6"/>
+  </svg>`;
+}
+
+function gateSVG(state) {
+  const W=220, H=120, pW=14, rH=10, bW=9;
+  const bH = H-rH*2-8, bY = rH+4, iW = W-pW*2;
+  const n=9, gap=(iW-n*bW)/(n+1);
+  const dx   = {closed:0, opening:iW*.30, open:iW*.60, closing:iW*.30, half:iW*.45}[state]||0;
+  const clr  = {closed:"#94a3b8", opening:"#f59e0b", open:"#22c55e", closing:"#f59e0b", half:"#8b5cf6"}[state]||"#94a3b8";
+  const post  = "#334155";
+  const rail  = "#e2e8f0";
+  let bars = "";
+  for(let i=0;i<n;i++){
+    const x = pW+gap+dx+i*(bW+gap);
+    bars += `<rect x="${x.toFixed(1)}" y="${bY}" width="${bW}" height="${bH}" rx="3" fill="${clr}"/>`;
+  }
+  const ind = {
+    opening:`<text x="${(pW+iW*.18).toFixed(1)}" y="${(H/2+6).toFixed(1)}" font-size="22" fill="#f59e0b" text-anchor="middle">→</text>`,
+    open:   `<text x="${(pW+iW*.22).toFixed(1)}" y="${(H/2+7).toFixed(1)}" font-size="24" fill="#22c55e" text-anchor="middle">✓</text>`,
+    closing:`<text x="${(pW+iW*.35).toFixed(1)}" y="${(H/2+6).toFixed(1)}" font-size="22" fill="#f59e0b" text-anchor="middle">←</text>`,
+    half:   `<text x="${(pW+iW*.28).toFixed(1)}" y="${(H/2+7).toFixed(1)}" font-size="24" fill="#8b5cf6" text-anchor="middle">~</text>`,
+  };
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"
+    style="display:block;margin:0 auto;overflow:hidden">
+    <defs><clipPath id="gc"><rect x="${pW}" y="0" width="${iW}" height="${H}"/></clipPath></defs>
+    <rect x="0"       y="0" width="${pW}"  height="${H}" rx="4" fill="${post}"/>
+    <rect x="${W-pW}" y="0" width="${pW}"  height="${H}" rx="4" fill="${post}"/>
+    <rect x="${pW}"   y="0" width="${iW}"  height="${rH}" fill="${rail}"/>
+    <rect x="${pW}"   y="${H-rH}" width="${iW}" height="${rH}" fill="${rail}"/>
+    <g clip-path="url(#gc)">${bars}</g>
+    ${ind[state]||""}
+  </svg>`;
+}
+
+function lockSVG() {
+  return `<svg viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg"
+    style="display:block;margin:0 auto;width:72px;height:81px">
+    <rect x="18" y="38" width="44" height="36" rx="8" fill="#dc2626"/>
+    <path d="M26 38 v-10 a14 14 0 0 1 28 0 v10"
+          fill="none" stroke="#dc2626" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="40" cy="56" r="5" fill="#fff"/>
+    <rect x="37.5" y="56" width="5" height="9" rx="2.5" fill="#fff"/>
+  </svg>`;
+}
+
+// ── Apply Status ──
+const STATES = {
+  opening: { card:"s-opening", badge:"b-opening", badgeTxt:"กำลังเปิด", label:"กำลังเปิด...", sub:"โปรดรอสักครู่" },
+  closing:  { card:"s-closing", badge:"b-closing", badgeTxt:"กำลังปิด",  label:"กำลังปิด...",  sub:"โปรดรอสักครู่" },
+  open:     { card:"s-open",    badge:"b-open",    badgeTxt:"เปิดอยู่",   label:"เปิดอยู่",     sub:"ประตูเปิดแล้ว"  },
+  closed:   { card:"",          badge:"",           badgeTxt:"ปิดสนิท",   label:"ปิดอยู่",      sub:"ประตูปิดสนิท"  },
+  unknown:  { card:"s-half",    badge:"b-half",     badgeTxt:"ไม่แน่นอน", label:"เปิดหรือปิดไม่สนิท", sub:"ตรวจสอบสถานะประตู" },
+};
+
+function applyStatus(s) {
+  const key = s.opening ? "opening" : s.closing ? "closing" : s.open ? "open" : s.closed ? "closed" : "unknown";
+  const st  = STATES[key];
+  const svgState = {opening:"opening", closing:"closing", open:"open", closed:"closed", unknown:"half"}[key];
+
+  const card    = document.getElementById("status-card");
+  const badge   = document.getElementById("status-badge");
+  const badgeTx = document.getElementById("badge-text");
+
+  card.className    = "status-card " + (st.card || "");
+  badge.className   = "status-badge " + (st.badge || "");
+  badgeTx.textContent = st.badgeTxt;
+  document.getElementById("status-icon").innerHTML  = gateSVG(svgState);
+  document.getElementById("status-label").textContent = st.label;
+  document.getElementById("status-sub").textContent   = st.sub;
+
+  setSensor("open",    s.open,    false);
+  setSensor("closed",  s.closed,  false);
+  setSensor("opening", s.opening, true);
+  setSensor("closing", s.closing, true);
+
+  document.getElementById("last-time").textContent =
+    new Date().toLocaleTimeString("th-TH");
+}
+
+function setSensor(key, val, amber) {
+  const item = document.getElementById(`si-${key}`);
+  const lbl  = document.getElementById(`val-${key}`);
+  item.className  = "sensor-item" + (val ? (amber ? " active-amber" : " active") : "");
+  lbl.textContent = val ? "ON" : "OFF";
+}
+
+// ── Connected State ──
+function setConnected(ok) {
+  const pill = document.getElementById("conn-pill");
+  const txt  = document.getElementById("conn-text");
+  pill.className   = "conn-pill" + (ok ? " online" : "");
+  txt.textContent  = ok ? "ออนไลน์" : "ออฟไลน์";
+  ["btn-open","btn-close","btn-stop"].forEach(id =>
+    document.getElementById(id).disabled = !ok
+  );
+}
+
+// ── Unauthorized ──
+function lockUnauthorized() {
+  disconnectWS(); stopPolling(); setConnected(false);
+  const card = document.getElementById("status-card");
+  card.className = "status-card s-error";
+  document.getElementById("status-badge").className  = "status-badge b-error";
+  document.getElementById("badge-text").textContent  = "ไม่ได้รับอนุญาต";
+  document.getElementById("status-icon").innerHTML   = lockSVG();
+  document.getElementById("status-label").textContent = "ไม่ได้รับอนุญาต";
+  document.getElementById("status-sub").textContent   = "กรุณาติดต่อผู้ดูแลระบบ";
+}
+
+// ── Press Button ──
+const BTN_LABELS = { open:"เปิดประตู", closed:"ปิดประตู", stop:"หยุด" };
+const BTN_IDS    = { open:"btn-open",  closed:"btn-close", stop:"btn-stop" };
+
+async function pressBtn(btn) {
+  const el = document.getElementById(BTN_IDS[btn]);
+  el.disabled = true;
+  if (btn==="open") el.classList.add("pressed");
+  try {
+    const res = await fetch(`${CONFIG.API_URL}/api/press?button=${btn}`, {
+      method: "POST",
+      headers: {
+        "ngrok-skip-browser-warning": "1",
+        ...(CONFIG.TOKEN ? { "TOKEN": CONFIG.TOKEN } : {}),
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.status === 401) { lockUnauthorized(); return; }
+    if (!res.ok) throw new Error();
+    showToast(`✅ สั่ง${BTN_LABELS[btn]}แล้ว`, "success");
+  } catch {
+    showToast("❌ ไม่สามารถเชื่อมต่อได้", "error");
+  } finally {
+    setTimeout(() => { el.disabled = false; el.classList.remove("pressed"); }, 2000);
+  }
+}
+
+// ── Toast ──
+let toastTimer = null;
+function showToast(msg, type="") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className   = "show" + (type ? ` ${type}` : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ""; }, 2500);
+}
+
+// ── GO ──
+initApp();
+</script>
+</body>
+</html>

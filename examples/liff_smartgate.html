@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SmartGate</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d27;
+      --border: #2a2d3a;
+      --green: #22c55e;
+      --green-dim: #16a34a22;
+      --amber: #f59e0b;
+      --amber-dim: #f59e0b22;
+      --red: #ef4444;
+      --red-dim: #ef444422;
+      --blue: #3b82f6;
+      --text: #f1f5f9;
+      --muted: #64748b;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 20px;
+    }
+
+    /* ===== LOADING ===== */
+    #screen-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== LOGIN ===== */
+    #screen-login {
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+    .login-logo { font-size: 64px; line-height: 1; }
+    .login-title { font-size: 22px; font-weight: 700; }
+    .login-sub { font-size: 14px; color: var(--muted); text-align: center; line-height: 1.6; }
+    .login-box {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .login-box label { font-size: 13px; color: var(--muted); }
+    .login-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-size: 20px;
+      font-weight: 600;
+      padding: 14px 16px;
+      letter-spacing: 4px;
+      text-align: center;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .login-input:focus { border-color: var(--blue); }
+    .login-input.error { border-color: var(--red); animation: shake 0.35s; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60%  { transform: translateX(-6px); }
+      40%,80%  { transform: translateX(6px); }
+    }
+    .login-err { font-size: 13px; color: var(--red); text-align: center; min-height: 18px; }
+    .btn-login {
+      width: 100%;
+      padding: 16px;
+      background: var(--blue);
+      border: none;
+      border-radius: 14px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn-login:active { transform: scale(0.97); opacity: 0.85; }
+
+    /* ===== MAIN APP ===== */
+    #screen-app { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 16px; }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .header-icon {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .header-name { font-size: 14px; font-weight: 600; }
+    .header-role { font-size: 11px; color: var(--muted); }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .conn-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+    .conn-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .btn-logout {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+    }
+    .btn-logout:active { opacity: 0.6; }
+
+    /* Status card */
+    .status-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      transition: border-color 0.4s, background 0.4s;
+    }
+    .status-icon { width: 100%; max-width: 220px; height: auto; }
+    @keyframes hg-flip {
+      0%,40%  { transform: rotate(0deg);   }
+      50%,90% { transform: rotate(180deg); }
+      100%    { transform: rotate(180deg); }
+    }
+    .hg-svg { animation: hg-flip 2.6s ease-in-out infinite; transform-origin: 40px 50px; }
+    .header-avatar-pic {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+    }
+    .status-label { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+    .status-sub { font-size: 13px; color: var(--muted); }
+    .status-card.s-open    { border-color: var(--green); background: var(--green-dim); }
+    .status-card.s-opening { border-color: var(--amber); background: var(--amber-dim); }
+    .status-card.s-closing { border-color: var(--amber); background: var(--amber-dim); }
+    .status-card.s-error   { border-color: var(--red);   background: var(--red-dim); }
+    .status-card.s-open    .status-label { color: var(--green); }
+    .status-card.s-opening .status-label { color: var(--amber); }
+    .status-card.s-closing .status-label { color: var(--amber); }
+    .status-card.s-error   .status-label { color: var(--red); }
+
+    /* Sensor grid */
+    .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sensor-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sensor-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+    .sensor-name { font-size: 12px; color: var(--muted); flex: 1; }
+    .sensor-val { font-size: 11px; font-weight: 600; }
+    .sensor-val.on       { color: var(--green); }
+    .sensor-val.on-amber { color: var(--amber); }
+
+    /* Open button */
+    .btn-open {
+      width: 100%;
+      padding: 20px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border: none;
+      border-radius: 18px;
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 8px 24px #22c55e40;
+      transition: transform 0.1s, box-shadow 0.2s, opacity 0.2s;
+      user-select: none;
+    }
+    .btn-open:active  { transform: scale(0.97); box-shadow: 0 4px 12px #22c55e30; }
+    .btn-open:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-open.pressed { background: linear-gradient(135deg, #16a34a, #15803d); }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 32px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1e2130;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px 20px;
+      border-radius: 50px;
+      font-size: 14px; font-weight: 500;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 100;
+    }
+    #toast.show    { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: var(--green); color: var(--green); }
+    #toast.error   { border-color: var(--red);   color: var(--red);   }
+
+    .last-update { text-align: center; font-size: 11px; color: var(--muted); }
+    [hidden] { display: none !important; }
+
+    /* ===== LOCK DOWN ===== */
+    body { user-select: none; -webkit-user-select: none; }
+    * { -webkit-touch-callout: none; }
+  </style>
+</head>
+<body oncontextmenu="return false">
+
+<!-- ===== LOADING ===== -->
+<div id="screen-loading">
+  <div class="spinner"></div>
+</div>
+
+<!-- ===== LOGIN ===== -->
+<div id="screen-login" hidden>
+  <div class="login-logo">🏘️</div>
+  <div class="login-title">SmartGate</div>
+  <div class="login-sub">กรุณากรอกรหัสผ่านที่ได้รับจากนิติบุคคล</div>
+  <div class="login-box">
+    <label>รหัสผ่าน</label>
+    <input id="pass-input" class="login-input" type="password"
+           inputmode="numeric" maxlength="10" placeholder="••••••••••"
+           onkeydown="if(event.key==='Enter') submitPass()">
+    <div class="login-err" id="login-err"></div>
+    <button class="btn-login" onclick="submitPass()">เข้าใช้งาน</button>
+  </div>
+</div>
+
+<!-- ===== MAIN APP ===== -->
+<div id="screen-app" hidden>
+
+  <div class="header">
+    <div class="header-left">
+      <div class="header-icon" id="header-icon">🏠</div>
+      <img id="profile-pic" class="header-avatar-pic" hidden>
+      <div>
+        <div class="header-name" id="header-name">ลูกบ้าน</div>
+        <div class="header-role">ประตูหมู่บ้าน</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="conn-dot" id="conn-dot"></div>
+      <button class="btn-logout" onclick="logout()">ออก</button>
+    </div>
+  </div>
+
+  <div class="status-card s-closed" id="status-card">
+    <div class="status-icon" id="status-icon">🚪</div>
+    <div class="status-label" id="status-label">กำลังตรวจสอบ...</div>
+    <div class="status-sub" id="status-sub">โปรดรอสักครู่</div>
+  </div>
+
+  <div class="sensor-grid">
+    <div class="sensor-item">
+      <div class="sensor-dot" id="dot-open"></div>
+      <div class="sensor-name">เปิดอยุ่</div>
+      <div class="sensor-val" id="val-open">–</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-dot" id="dot-closed"></div>
+      <div class="sensor-name">ปิดสนิท</div>
+      <div class="sensor-val" id="val-closed">–</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-dot" id="dot-opening"></div>
+      <div class="sensor-name">กำลังเปิด</div>
+      <div class="sensor-val" id="val-opening">–</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-dot" id="dot-closing"></div>
+      <div class="sensor-name">กำลังปิด</div>
+      <div class="sensor-val" id="val-closing">–</div>
+    </div>
+  </div>
+
+  <button class="btn-open" id="btn-open" onclick="pressOpen()" disabled>
+    <span>🔓</span> เปิดประตู
+  </button>
+
+  <div class="last-update">อัปเดตล่าสุด: <span id="last-time">–</span></div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ============================================================
+//  CONFIG
+// ============================================================
+const CONFIG = {
+  LIFF_ID:     "YOUR_LIFF_ID",
+  API_URL:     "https://your-server-or-ngrok-url.com",
+  WS_URL:      "wss://your-server-or-ngrok-url.com/ws",
+  STORAGE_KEY: "sgm_auth",
+  TOKEN:       "YOUR_TOKEN_HERE",
+};
+// ============================================================
+
+// ===== LOCK DOWN =====
+document.addEventListener("contextmenu",  e => e.preventDefault());
+document.addEventListener("selectstart",  e => e.preventDefault());
+document.addEventListener("dragstart",    e => e.preventDefault());
+document.addEventListener("keydown", e => {
+  const k = e.key, c = e.ctrlKey || e.metaKey, s = e.shiftKey;
+  if (k === "F12") { e.preventDefault(); return; }
+  if (c && k === "u") { e.preventDefault(); return; }
+  if (c && k === "s") { e.preventDefault(); return; }
+  if (c && k === "a") { e.preventDefault(); return; }
+  if (c && s && (k === "i" || k === "I" || k === "j" || k === "J" || k === "c" || k === "C")) {
+    e.preventDefault();
+  }
+});
+// ป้องกัน long-press บนมือถือ (callout menu)
+document.addEventListener("touchstart", e => {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+let _longPress;
+document.addEventListener("touchstart",  () => { _longPress = setTimeout(() => {}, 500); });
+document.addEventListener("touchend",    () => clearTimeout(_longPress));
+document.addEventListener("touchcancel", () => clearTimeout(_longPress));
+
+// ===== localStorage helper (sandbox-safe) =====
+function storeGet(key)        { try { return localStorage.getItem(key); }    catch { return null; } }
+function storeSet(key, val)   { try { localStorage.setItem(key, val); }      catch {} }
+function storeDel(key)        { try { localStorage.removeItem(key); }        catch {} }
+
+// ===== รหัสผ่าน = YYYYMMDDHH =====
+function getCurrentPassword() {
+  const now  = new Date();
+  const yyyy = now.getFullYear();
+  const mm   = String(now.getMonth() + 1).padStart(2, "0");
+  const dd   = String(now.getDate()).padStart(2, "0");
+  const hh   = String(now.getHours()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}${hh}`;
+}
+
+function isAuthValid() {
+  return storeGet(CONFIG.STORAGE_KEY) === "authenticated";
+}
+
+let ws = null;
+let wsReconnectTimer = null;
+let pollTimer = null;
+
+function startPolling() {
+  if (pollTimer) return;
+  fetchStatus();
+  pollTimer = setInterval(fetchStatus, 3000);
+}
+function stopPolling() { clearInterval(pollTimer); pollTimer = null; }
+
+async function fetchStatus() {
+  try {
+    const url = CONFIG.TOKEN
+      ? `${CONFIG.API_URL}/api/sensor?token=${encodeURIComponent(CONFIG.TOKEN)}`
+      : `${CONFIG.API_URL}/api/sensor`;
+    const res = await fetch(url, {
+      headers: { "ngrok-skip-browser-warning": "1" },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (res.status === 401) { setUnauthorized(); return; }
+    if (!res.ok) throw new Error();
+    updateStatus(await res.json());
+    setConnected(true);
+  } catch { setConnected(false); }
+}
+
+// ----- Init (LIFF → Password) -----
+async function initApp() {
+  try {
+    await liff.init({ liffId: CONFIG.LIFF_ID });
+    if (!liff.isLoggedIn()) {
+      liff.login({ redirectUri: location.href });
+      return;
+    }
+    const profile = await liff.getProfile();
+    document.getElementById("header-name").textContent = profile.displayName;
+    if (profile.pictureUrl) {
+      const pic = document.getElementById("profile-pic");
+      pic.src = profile.pictureUrl;
+      pic.hidden = false;
+      document.getElementById("header-icon").hidden = true;
+    }
+  } catch (e) {
+    console.warn("LIFF:", e.message);
+    // ถ้า LIFF ใช้งานไม่ได้ (ทดสอบใน browser) ข้ามไปได้
+  }
+
+  if (isAuthValid()) {
+    startMainApp();
+  } else {
+    storeDel(CONFIG.STORAGE_KEY);
+    show("login");
+  }
+}
+
+// ----- Login -----
+async function submitPass() {
+  const input = document.getElementById("pass-input");
+  const errEl = document.getElementById("login-err");
+  const val   = input.value.trim();
+
+  if (val === getCurrentPassword()) {
+    storeSet(CONFIG.STORAGE_KEY, "authenticated");
+    errEl.textContent = "";
+    startMainApp();
+  } else {
+    errEl.textContent = "รหัสผ่านไม่ถูกต้อง";
+    input.classList.add("error");
+    input.value = "";
+    setTimeout(() => input.classList.remove("error"), 400);
+  }
+}
+
+function connectWS() {
+  clearTimeout(wsReconnectTimer);
+  const url = CONFIG.TOKEN
+    ? `${CONFIG.WS_URL}/?token=${encodeURIComponent(CONFIG.TOKEN)}`
+    : CONFIG.WS_URL;
+  ws = new WebSocket(url);
+  ws.onopen = () => { setConnected(true); };
+  ws.onmessage = (e) => {
+    try { updateStatus(JSON.parse(e.data)); } catch {}
+  };
+  ws.onclose = ws.onerror = () => {
+    setConnected(false);
+    if (CONFIG.WS_URL) wsReconnectTimer = setTimeout(connectWS, 5000);
+  };
+}
+
+function disconnectWS() {
+  clearTimeout(wsReconnectTimer);
+  if (ws) { ws.onclose = ws.onerror = null; ws.close(); ws = null; }
+}
+
+function logout() {
+  disconnectWS();
+  stopPolling();
+  storeDel(CONFIG.STORAGE_KEY);
+  show("login");
+  document.getElementById("pass-input").value = "";
+}
+
+// ----- Main App -----
+function startMainApp() {
+  show("app");
+  document.getElementById("status-icon").innerHTML = getHourglassSVG();
+  document.getElementById("status-label").textContent = "กำลังเชื่อมต่อ...";
+  document.getElementById("status-sub").textContent   = "โปรดรอสักครู่";
+  if (CONFIG.WS_URL) connectWS(); else startPolling();
+}
+
+// ----- SVG นาฬิกาทราย (ระหว่างรอเชื่อมต่อ) -----
+function getHourglassSVG() {
+  return `<svg class="hg-svg" viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;width:90px;height:112px">
+    <rect x="10" y="4"  width="60" height="7" rx="3.5" fill="#475569"/>
+    <rect x="10" y="89" width="60" height="7" rx="3.5" fill="#475569"/>
+    <line x1="14" y1="11" x2="40" y2="49" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="66" y1="11" x2="40" y2="49" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="14" y1="89" x2="40" y2="51" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="66" y1="89" x2="40" y2="51" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+    <polygon points="14,11 66,11 40,49"  fill="#f59e0b" opacity="0.75"/>
+    <polygon points="14,89 66,89 40,51"  fill="#f59e0b" opacity="0.25"/>
+    <circle cx="40" cy="50" r="3" fill="#f59e0b"/>
+  </svg>`;
+}
+
+// ----- SVG ประตูรั้วเลื่อน -----
+function getGateSVG(state) {
+  const W = 200, H = 110, pW = 12, rH = 9;
+  const bW = 8, bH = H - rH * 2 - 6, bY = rH + 3;
+  const iW = W - pW * 2;
+  const n = 9, gap = (iW - n * bW) / (n + 1);
+
+  // ยิ่งเปิดมาก แผงยิ่งเลื่อนขวา
+  const dx = { closed: 0, opening: iW * 0.30, open: iW * 0.60, closing: iW * 0.30, half: iW * 0.45 }[state] || 0;
+  const barFill = { closed: '#64748b', opening: '#f59e0b', open: '#22c55e', closing: '#f59e0b', half: '#8b5cf6' }[state] || '#64748b';
+
+  let bars = '';
+  for (let i = 0; i < n; i++) {
+    const x = pW + gap + dx + i * (bW + gap);
+    bars += `<rect x="${x.toFixed(1)}" y="${bY}" width="${bW}" height="${bH}" rx="3" fill="${barFill}"/>`;
+  }
+
+  const indicators = {
+    opening: `<text x="${(pW + iW * 0.18).toFixed(1)}" y="${(H/2+6).toFixed(1)}" font-size="20" fill="#f59e0b" text-anchor="middle" font-family="sans-serif">→</text>`,
+    open:    `<text x="${(pW + iW * 0.22).toFixed(1)}" y="${(H/2+7).toFixed(1)}" font-size="22" fill="#22c55e" text-anchor="middle" font-family="sans-serif">✓</text>`,
+    closing: `<text x="${(pW + iW * 0.35).toFixed(1)}" y="${(H/2+6).toFixed(1)}" font-size="20" fill="#f59e0b" text-anchor="middle" font-family="sans-serif">←</text>`,
+    half:    `<text x="${(pW + iW * 0.28).toFixed(1)}" y="${(H/2+7).toFixed(1)}" font-size="22" fill="#8b5cf6" text-anchor="middle" font-family="sans-serif">~</text>`,
+  };
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;overflow:hidden">
+    <defs><clipPath id="gc"><rect x="${pW}" y="0" width="${iW}" height="${H}"/></clipPath></defs>
+    <rect x="0"        y="0" width="${pW}" height="${H}" rx="3" fill="#334155"/>
+    <rect x="${W-pW}"  y="0" width="${pW}" height="${H}" rx="3" fill="#334155"/>
+    <rect x="${pW}"    y="0" width="${iW}" height="${rH}" fill="#1e293b"/>
+    <rect x="${pW}"    y="${H-rH}" width="${iW}" height="${rH}" fill="#1e293b"/>
+    <g clip-path="url(#gc)">${bars}</g>
+    ${indicators[state] || ''}
+  </svg>`;
+}
+
+// headers ทุก request (ngrok free tier ต้องการ ngrok-skip-browser-warning)
+function apiHeaders(extra = {}) {
+  const headers = { "ngrok-skip-browser-warning": "1", ...extra };
+  if (CONFIG.TOKEN) headers["TOKEN"] = CONFIG.TOKEN;
+  return headers;
+}
+
+// ----- Unauthorized state -----
+function setUnauthorized() {
+  disconnectWS();
+  stopPolling();
+  document.getElementById("conn-dot").className = "conn-dot";
+  document.getElementById("btn-open").disabled = true;
+  const card  = document.getElementById("status-card");
+  const icon  = document.getElementById("status-icon");
+  const label = document.getElementById("status-label");
+  const sub   = document.getElementById("status-sub");
+  card.className = "status-card s-error";
+  icon.innerHTML = `<svg viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;width:80px;height:90px">
+    <rect x="18" y="38" width="44" height="36" rx="7" fill="#ef4444"/>
+    <path d="M26 38 v-10 a14 14 0 0 1 28 0 v10" fill="none" stroke="#ef4444" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="40" cy="56" r="5" fill="#fff"/>
+    <rect x="37.5" y="56" width="5" height="9" rx="2.5" fill="#fff"/>
+  </svg>`;
+  label.textContent = "ไม่ได้รับอนุญาต";
+  sub.textContent   = "กรุณาติดต่อ ฝ่ายนิติบุคคล หรือ ผู้ดูแลที่เกี่ยวข้อง";
+}
+
+
+function updateStatus(s) {
+  const card  = document.getElementById("status-card");
+  const icon  = document.getElementById("status-icon");
+  const label = document.getElementById("status-label");
+  const sub   = document.getElementById("status-sub");
+
+  card.className = "status-card";
+
+  if (s.opening) {
+    card.classList.add("s-opening");
+    icon.innerHTML = getGateSVG("opening"); label.textContent = "กำลังเปิด..."; sub.textContent = "โปรดรอสักครู่";
+  } else if (s.closing) {
+    card.classList.add("s-closing");
+    icon.innerHTML = getGateSVG("closing"); label.textContent = "กำลังปิด..."; sub.textContent = "โปรดรอสักครู่";
+  } else if (s.open) {
+    card.classList.add("s-open");
+    icon.innerHTML = getGateSVG("open"); label.textContent = "เปิดอยู่"; sub.textContent = "ประตูเปิดแล้ว";
+  } else if (s.closed) {
+    icon.innerHTML = getGateSVG("closed"); label.textContent = "ปิดอยู่"; sub.textContent = "ประตูปิดสนิท";
+  } else {
+    icon.innerHTML = getGateSVG("half"); label.textContent = "เปิดหรือปิดไม่สนิท"; sub.textContent = "ตรวจสอบสถานะประตู";
+  }
+
+  setSensor("open",    s.open,     false);
+  setSensor("closed",  s.closed,   false);
+  setSensor("opening", s.opening,  true);
+  setSensor("closing", s.closing,  true);
+
+  document.getElementById("last-time").textContent =
+    new Date().toLocaleTimeString("th-TH");
+}
+
+function setSensor(key, val, isAmber) {
+  const color = val ? (isAmber ? "var(--amber)" : "var(--green)") : "var(--muted)";
+  document.getElementById(`dot-${key}`).style.background = color;
+  const lbl = document.getElementById(`val-${key}`);
+  lbl.className = "sensor-val" + (val ? (isAmber ? " on-amber" : " on") : "");
+  lbl.textContent = val ? "ON" : "OFF";
+}
+
+function setConnected(ok) {
+  document.getElementById("conn-dot").className = "conn-dot" + (ok ? " online" : "");
+  if (ok) document.getElementById("btn-open").disabled = false;
+}
+
+// ----- Press Open -----
+async function pressOpen() {
+  const btn = document.getElementById("btn-open");
+  btn.disabled = true;
+  btn.classList.add("pressed");
+  try {
+    const res = await fetch(`${CONFIG.API_URL}/api/press?button=open`, {
+      method: "POST",
+      headers: apiHeaders(),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.status === 401) { setUnauthorized(); return; }
+    if (!res.ok) throw new Error();
+    showToast("✅ ส่งคำสั่งเปิดแล้ว", "success");
+  } catch {
+    showToast("❌ ไม่สามารถเชื่อมต่อได้", "error");
+  } finally {
+    setTimeout(() => { btn.disabled = false; btn.classList.remove("pressed"); }, 2000);
+  }
+}
+
+// ----- Helpers -----
+function show(screen) {
+  ["loading","login","app"].forEach(s =>
+    document.getElementById(`screen-${s}`).hidden = (s !== screen)
+  );
+}
+
+let toastTimer = null;
+function showToast(msg, type = "") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className   = "show" + (type ? ` ${type}` : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ""; }, 2500);
+}
+
+// Start
+initApp();
+</script>
+</body>
+</html>

@@ -17,6 +17,8 @@
 
 | ไฟล์ | ประเภท | คำอธิบาย |
 |------|--------|---------|
+| [`examples/webapp_smartgate.html`](examples/webapp_smartgate.html) | Web App | หน้าควบคุมประตู (light theme) — เชื่อมตรง ESP32 |
+| [`examples/liff_smartgate.html`](examples/liff_smartgate.html) | LINE LIFF | หน้าควบคุมประตูบน LINE — login ด้วย LINE account |
 | [`examples/ws_client.html`](examples/ws_client.html) | WebSocket | Browser client — ดูสถานะ sensor แบบ real-time |
 | [`examples/webhook_receiver.py`](examples/webhook_receiver.py) | Webhook | Python server รับ POST จาก SGM |
 | [`examples/api_examples.sh`](examples/api_examples.sh) | REST API | curl commands ครบทุก endpoint |
@@ -169,7 +171,70 @@ curl -X POST "http://$IP/token" \
 
 ---
 
-## 2 · WebSocket
+## 2 · Web App (Standalone)
+
+**ไฟล์:** [`examples/webapp_smartgate.html`](examples/webapp_smartgate.html)
+
+หน้าควบคุมประตู **light theme** — เปิดในเบราว์เซอร์โดยตรง ไม่ต้องติดตั้ง server  
+เชื่อมต่อตรงกับ ESP32 ผ่าน WebSocket หรือ REST API polling
+
+**แก้ไข CONFIG ในไฟล์:**
+
+```js
+const CONFIG = {
+  API_URL:     "http://192.168.1.80",   // IP ของ ESP32
+  WS_URL:      "ws://192.168.1.80:81",  // WebSocket ESP32
+  TOKEN:       "YOUR_TOKEN_HERE",        // token จาก GET /token
+  STORAGE_KEY: "sgm_auth",
+};
+```
+
+**ฟีเจอร์:**
+- ปุ่มเปิด / ปิด / หยุดประตู
+- แสดงสถานะ sensor แบบ real-time ผ่าน WebSocket
+- login ด้วยรหัสผ่าน `YYYYMMDDHH` (เปลี่ยนทุกชั่วโมง)
+- รองรับทั้ง desktop และมือถือ
+
+---
+
+## 3 · LINE LIFF App
+
+**ไฟล์:** [`examples/liff_smartgate.html`](examples/liff_smartgate.html)
+
+หน้าควบคุมประตู **dark theme** สำหรับเปิดใน **LINE** ผ่าน LIFF  
+login ด้วย LINE account + รหัสผ่าน แสดงชื่อและรูปโปรไฟล์ LINE
+
+**แก้ไข CONFIG ในไฟล์:**
+
+```js
+const CONFIG = {
+  LIFF_ID: "YOUR_LIFF_ID",                    // จาก LINE Developers Console
+  API_URL: "https://your-server.example.com", // URL ของ backend server
+  WS_URL:  "wss://your-server.example.com/ws",// WebSocket (wss:// สำหรับ https)
+  TOKEN:   "YOUR_TOKEN_HERE",                 // token จาก GET /token
+};
+```
+
+**ขั้นตอนการตั้งค่า:**
+
+1. สร้าง LIFF app ที่ [LINE Developers Console](https://developers.line.biz/)
+2. ตั้ง LIFF URL ให้ชี้ไปที่ไฟล์นี้บน server
+3. แก้ไข CONFIG ในไฟล์
+4. เพิ่ม LIFF ใน LINE OA
+
+**ความแตกต่างจาก webapp:**
+
+| | webapp | liff |
+|--|--|--|
+| Login | รหัสผ่าน YYYYMMDDHH | LINE account + รหัสผ่าน |
+| Theme | Light | Dark |
+| เชื่อมต่อ | ตรง ESP32 | ผ่าน server/ngrok |
+| ปุ่ม | เปิด/ปิด/หยุด | เปิดอย่างเดียว |
+| Platform | Browser ทั่วไป | LINE app |
+
+---
+
+## 4 · WebSocket (Raw Client)
 
 ```
 URL: ws://<IP>:81/
@@ -202,7 +267,7 @@ wscat -c "ws://192.168.1.80:81/?token=your_token"
 
 ---
 
-## 3 · Webhook
+## 5 · Webhook
 
 SGM ส่ง HTTP POST ทุกครั้งที่ sensor เปลี่ยนสถานะ
 
@@ -239,7 +304,7 @@ WEBHOOK_TOKEN=your_token python examples/webhook_receiver.py
 
 ---
 
-## 4 · UART Serial
+## 6 · UART Serial
 
 ควบคุมผ่าน Serial โดยตรง ไม่ต้องใช้ WiFi  
 **UART0 · GPIO1=TX / GPIO3=RX · 115200 baud**
