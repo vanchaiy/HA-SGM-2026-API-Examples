@@ -14,6 +14,15 @@
 
 ---
 
+| <img src="./HA-SGM.png" alt="HA-SGM" width="400"> | <img src="./HA-SGM-FULL.png" alt="HA-SGM-FULL" width="400"> |
+|--------------------------|--------------------------|
+
+<img src="./MQTT.png" alt="MQTT" width="858">
+
+
+---
+
+
 ## ไฟล์ในโปรเจกต์นี้
 
 | ไฟล์ | ประเภท | คำอธิบาย |
